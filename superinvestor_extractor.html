@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Superinvestor Portfolio Extractor</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-deep: #060a11; --bg-base: #0b1120; --bg-raised: #111b2e;
+    --bg-surface: #162038; --border: #1e3050; --border-light: #2a4060;
+    --text-primary: #e8edf5; --text-secondary: #8899b3; --text-muted: #5a6e8a;
+    --accent-coral: #e2725b; --accent-coral-glow: #e2725b44;
+    --accent-amber: #f0b27a; --accent-blue: #5b9ef0; --accent-purple: #9b7be2;
+    --accent-green: #5be2a0; --accent-teal: #5bc8e2; --accent-red: #ef5b5b;
+    --code-keyword: #c4a5e2; --code-string: #a5d6ad; --code-func: #7ec8e3;
+    --code-comment: #5a6e8a; --code-number: #f0b27a;
+  }
+  body { font-family: 'Outfit', sans-serif; background: var(--bg-deep); color: var(--text-primary); line-height: 1.6; overflow-x: hidden; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-base); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes glow { 0%, 100% { box-shadow: 0 0 20px var(--accent-coral-glow); } 50% { box-shadow: 0 0 40px var(--accent-coral-glow); } }
+  @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+  .fade-up { animation: fadeUp 0.6s ease both; }
+  .fade-up-1 { animation-delay: 0.1s; } .fade-up-2 { animation-delay: 0.2s; }
+  .fade-up-3 { animation-delay: 0.3s; } .fade-up-4 { animation-delay: 0.4s; }
+  .fade-up-5 { animation-delay: 0.5s; }
+
+  .hero { position: relative; padding: 80px 40px 60px; text-align: center; overflow: hidden; }
+  .hero::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(ellipse 600px 400px at 50% 0%, #e2725b12 0%, transparent 70%), radial-gradient(ellipse 400px 300px at 20% 80%, #5b9ef008 0%, transparent 70%), radial-gradient(ellipse 400px 300px at 80% 80%, #9b7be208 0%, transparent 70%); pointer-events: none; }
+  .hero-badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px; border-radius: 30px; background: var(--bg-raised); border: 1px solid var(--border); font-size: 13px; color: var(--text-secondary); margin-bottom: 28px; font-weight: 500; }
+  .hero-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); animation: glow 2s infinite; }
+  .hero h1 { font-size: clamp(36px, 6vw, 64px); font-weight: 900; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 16px; background: linear-gradient(135deg, #fff 0%, var(--accent-coral) 50%, var(--accent-amber) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .hero p { font-size: 18px; color: var(--text-secondary); max-width: 560px; margin: 0 auto 32px; font-weight: 300; }
+  .hero-stats { display: flex; justify-content: center; gap: 32px; flex-wrap: wrap; }
+  .hero-stat .num { font-size: 28px; font-weight: 800; color: var(--accent-coral); }
+  .hero-stat .label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+  section { padding: 60px 0; }
+  .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent-coral); font-weight: 700; margin-bottom: 8px; }
+  .section-title { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .section-desc { color: var(--text-secondary); font-size: 15px; margin-bottom: 36px; max-width: 600px; }
+  .divider { height: 1px; background: linear-gradient(90deg, transparent 0%, var(--border) 50%, transparent 100%); }
+
+  .investor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .investor-card { background: var(--bg-base); border: 1px solid var(--border); border-radius: 14px; padding: 24px; position: relative; overflow: hidden; transition: border-color 0.3s, transform 0.3s; }
+  .investor-card:hover { border-color: var(--border-light); transform: translateY(-2px); }
+  .investor-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .investor-card.coral::before { background: var(--accent-coral); }
+  .investor-card.blue::before { background: var(--accent-blue); }
+  .investor-card.purple::before { background: var(--accent-purple); }
+  .investor-avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; margin-bottom: 14px; }
+  .investor-card.coral .investor-avatar { background: #e2725b22; color: var(--accent-coral); }
+  .investor-card.blue .investor-avatar { background: #5b9ef022; color: var(--accent-blue); }
+  .investor-card.purple .investor-avatar { background: #9b7be222; color: var(--accent-purple); }
+  .investor-name { font-size: 18px; font-weight: 700; }
+  .investor-firm { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+  .investor-code { display: inline-block; margin-top: 12px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-muted); background: var(--bg-raised); padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border); }
+  .investor-source { font-size: 11px; color: var(--text-muted); margin-top: 10px; }
+
+  .ark-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 36px; }
+  .ark-card { background: var(--bg-base); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-align: center; transition: border-color 0.3s, transform 0.3s; }
+  .ark-card:hover { transform: translateY(-2px); border-color: var(--border-light); }
+  .ark-etf { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+  .ark-name { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+  .pipeline { display: flex; align-items: stretch; gap: 0; overflow-x: auto; padding: 20px 0; }
+  .pipeline-step { flex: 1; min-width: 160px; background: var(--bg-base); border: 1px solid var(--border); border-radius: 12px; padding: 24px 18px; text-align: center; }
+  .pipeline-step .step-icon { font-size: 28px; margin-bottom: 10px; display: block; animation: float 3s ease-in-out infinite; }
+  .pipeline-step:nth-child(3) .step-icon { animation-delay: 0.3s; }
+  .pipeline-step:nth-child(5) .step-icon { animation-delay: 0.6s; }
+  .pipeline-step:nth-child(7) .step-icon { animation-delay: 0.9s; }
+  .pipeline-step .step-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .pipeline-step .step-desc { font-size: 12px; color: var(--text-muted); }
+  .pipeline-arrow { display: flex; align-items: center; padding: 0 8px; color: var(--border-light); font-size: 22px; flex-shrink: 0; }
+
+  /* Tabs */
+  .tab-bar { display: flex; gap: 4px; padding: 4px; background: var(--bg-base); border: 1px solid var(--border); border-bottom: none; border-radius: 12px 12px 0 0; overflow-x: auto; }
+  .tab-btn { padding: 8px 16px; font-size: 12px; font-weight: 600; font-family: 'Outfit', sans-serif; color: var(--text-muted); background: none; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+  .tab-btn:hover { color: var(--text-secondary); background: var(--bg-raised); }
+  .tab-btn.active { color: var(--text-primary); background: var(--bg-raised); box-shadow: inset 0 0 0 1px var(--border); }
+  .tab-btn .lines { font-size: 10px; padding: 1px 6px; background: var(--bg-surface); border-radius: 10px; color: var(--text-muted); }
+  .tab-content { background: var(--bg-base); border: 1px solid var(--border); border-top: none; border-radius: 0 0 12px 12px; overflow: hidden; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .tab-content pre { padding: 20px 24px; margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.8; overflow-x: auto; color: var(--text-primary); counter-reset: line; }
+  .tab-content .line { display: block; padding-left: 48px; position: relative; }
+  .tab-content .line::before { counter-increment: line; content: counter(line); position: absolute; left: 0; width: 32px; text-align: right; color: var(--text-muted); font-size: 11px; opacity: 0.5; user-select: none; }
+  .kw { color: var(--code-keyword); } .st { color: var(--code-string); } .fn { color: var(--code-func); }
+  .cm { color: var(--code-comment); font-style: italic; } .nb { color: var(--code-number); } .op { color: var(--text-muted); }
+
+  /* Data Tables */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table thead th { text-align: left; padding: 12px 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 700; background: var(--bg-raised); border-bottom: 1px solid var(--border); position: sticky; top: 0; white-space: nowrap; }
+  .data-table tbody td { padding: 10px 16px; border-bottom: 1px solid #1a2540; white-space: nowrap; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .data-table tbody tr:hover { background: var(--bg-raised); }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .ticker { font-weight: 700; color: var(--accent-teal); background: #5bc8e210; padding: 2px 8px; border-radius: 4px; }
+  .pct-bar { display: inline-flex; align-items: center; gap: 8px; }
+  .pct-bar .bar { height: 6px; border-radius: 3px; min-width: 2px; }
+  .activity-buy { color: var(--accent-green); font-weight: 600; }
+  .activity-reduce { color: var(--accent-red); font-weight: 600; }
+  .activity-add { color: var(--accent-blue); font-weight: 600; }
+  .activity-new { color: var(--accent-amber); font-weight: 600; }
+  .table-footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-raised); border-top: 1px solid var(--border); font-size: 11px; color: var(--text-muted); }
+
+  /* Terminal */
+  .terminal { background: #0c0c0c; border: 1px solid #2a2a2a; border-radius: 12px; overflow: hidden; margin-top: 24px; }
+  .terminal-bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: #1a1a1a; border-bottom: 1px solid #2a2a2a; }
+  .terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
+  .terminal-dot.r { background: #ff5f57; } .terminal-dot.y { background: #febc2e; } .terminal-dot.g { background: #28c840; }
+  .terminal-title { font-size: 12px; color: #888; margin-left: 8px; font-family: 'JetBrains Mono', monospace; }
+  .terminal-body { padding: 16px 20px; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.9; color: #ccc; overflow-x: auto; max-height: 420px; overflow-y: auto; }
+  .t-green { color: #5be2a0; } .t-amber { color: #f0b27a; } .t-cyan { color: #5bc8e2; } .t-dim { color: #666; } .t-coral { color: #e2725b; } .t-bold { font-weight: 700; color: #fff; }
+
+  .deps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .dep-card { background: var(--bg-base); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; display: flex; align-items: center; gap: 14px; transition: border-color 0.3s; }
+  .dep-card:hover { border-color: var(--border-light); }
+  .dep-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--bg-raised); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .dep-name { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; color: var(--accent-teal); }
+  .dep-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .install-box { background: var(--bg-base); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; font-family: 'JetBrains Mono', monospace; font-size: 13px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: border-color 0.3s; }
+  .install-box:hover { border-color: var(--accent-green); }
+  .install-box .prompt { color: var(--accent-green); }
+  .install-box .cmd { color: var(--text-secondary); }
+  .install-box .copy-hint { margin-left: auto; font-size: 11px; color: var(--text-muted); font-family: 'Outfit', sans-serif; opacity: 0; transition: opacity 0.2s; }
+  .install-box:hover .copy-hint { opacity: 1; }
+
+  footer { text-align: center; padding: 40px 24px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 13px; }
+  footer a { color: var(--accent-coral); text-decoration: none; }
+
+  @media (max-width: 640px) {
+    .hero { padding: 60px 20px 40px; }
+    section { padding: 40px 0; }
+    .pipeline { flex-direction: column; }
+    .pipeline-arrow { justify-content: center; transform: rotate(90deg); padding: 4px 0; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="fade-up"><div class="hero-badge"><span class="dot"></span> Python 3.10+</div></div>
+  <h1 class="fade-up fade-up-1">Superinvestor<br>Portfolio Extractor</h1>
+  <p class="fade-up fade-up-2">Track what the world's greatest investors are buying. Automated 13F filing extraction from Dataroma &amp; ARK Invest holdings.</p>
+  <div class="hero-stats fade-up fade-up-3">
+    <div class="hero-stat"><div class="num">3</div><div class="label">Superinvestors</div></div>
+    <div class="hero-stat"><div class="num">5</div><div class="label">ARK ETFs</div></div>
+    <div class="hero-stat"><div class="num">249</div><div class="label">Lines of Code</div></div>
+    <div class="hero-stat"><div class="num">10+</div><div class="label">CSV Outputs</div></div>
+  </div>
+</header>
+<div class="divider"></div>
+
+<div class="container">
+
+<!-- PIPELINE -->
+<section>
+  <div class="section-label fade-up">How It Works</div>
+  <div class="section-title fade-up fade-up-1">Data Pipeline</div>
+  <div class="section-desc fade-up fade-up-2">From public filings to structured CSVs in four steps.</div>
+  <div class="pipeline fade-up fade-up-3">
+    <div class="pipeline-step"><span class="step-icon">🌐</span><div class="step-title">Scrape</div><div class="step-desc">Fetch 13F filings from Dataroma &amp; ARK API</div></div>
+    <div class="pipeline-arrow">→</div>
+    <div class="pipeline-step"><span class="step-icon">🔍</span><div class="step-title">Parse</div><div class="step-desc">Extract tickers, weights &amp; shares with BeautifulSoup</div></div>
+    <div class="pipeline-arrow">→</div>
+    <div class="pipeline-step"><span class="step-icon">📊</span><div class="step-title">Analyze</div><div class="step-desc">Find overlap, rank conviction picks</div></div>
+    <div class="pipeline-arrow">→</div>
+    <div class="pipeline-step"><span class="step-icon">💾</span><div class="step-title">Export</div><div class="step-desc">Save holdings as clean CSV files</div></div>
+  </div>
+</section>
+<div class="divider"></div>
+
+<!-- SAMPLE OUTPUT -->
+<section>
+  <div class="section-label fade-up">Sample Output</div>
+  <div class="section-title fade-up fade-up-1">What You Get</div>
+  <div class="section-desc fade-up fade-up-2">Here's what the extracted data looks like — real portfolio positions from each source.</div>
+
+  <div class="tab-bar fade-up fade-up-3" id="outputTabs">
+    <button class="tab-btn active" data-group="output" data-panel="buffett">📊 Buffett</button>
+    <button class="tab-btn" data-group="output" data-panel="ackman">📊 Ackman</button>
+    <button class="tab-btn" data-group="output" data-panel="klarman">📊 Klarman</button>
+    <button class="tab-btn" data-group="output" data-panel="arkk">🚀 ARKK</button>
+    <button class="tab-btn" data-group="output" data-panel="conviction">🏆 Conviction</button>
+  </div>
+  <div class="tab-content">
+    <!-- Buffett -->
+    <div class="tab-panel active" id="output-buffett"><div style="overflow-x:auto;">
+      <table class="data-table"><thead><tr><th>Symbol</th><th>Stock</th><th>Portfolio %</th><th>Recent Activity</th><th>Shares</th><th>Reported Price</th><th>Value</th></tr></thead><tbody>
+        <tr><td><span class="ticker">AAPL</span></td><td>Apple Inc</td><td><span class="pct-bar"><span class="bar" style="width:90px;background:var(--accent-coral);"></span> 28.10%</span></td><td class="activity-reduce">Reduce 25%</td><td>300,000,000</td><td>$178.72</td><td>$53,616,000,000</td></tr>
+        <tr><td><span class="ticker">BAC</span></td><td>Bank of America</td><td><span class="pct-bar"><span class="bar" style="width:42px;background:var(--accent-coral);"></span> 13.20%</span></td><td class="activity-buy">Buy</td><td>1,032,852,006</td><td>$33.41</td><td>$34,507,000,000</td></tr>
+        <tr><td><span class="ticker">AXP</span></td><td>American Express</td><td><span class="pct-bar"><span class="bar" style="width:38px;background:var(--accent-coral);"></span> 11.84%</span></td><td>—</td><td>151,610,700</td><td>$211.18</td><td>$32,017,000,000</td></tr>
+        <tr><td><span class="ticker">KO</span></td><td>Coca-Cola Co</td><td><span class="pct-bar"><span class="bar" style="width:30px;background:var(--accent-coral);"></span> 9.40%</span></td><td>—</td><td>400,000,000</td><td>$59.54</td><td>$23,816,000,000</td></tr>
+        <tr><td><span class="ticker">CVX</span></td><td>Chevron Corp</td><td><span class="pct-bar"><span class="bar" style="width:22px;background:var(--accent-coral);"></span> 6.72%</span></td><td class="activity-reduce">Reduce 3%</td><td>118,610,534</td><td>$153.44</td><td>$18,199,000,000</td></tr>
+        <tr><td><span class="ticker">OXY</span></td><td>Occidental Petroleum</td><td><span class="pct-bar"><span class="bar" style="width:18px;background:var(--accent-coral);"></span> 5.51%</span></td><td class="activity-add">Add 9%</td><td>248,018,128</td><td>$58.27</td><td>$14,452,000,000</td></tr>
+        <tr><td><span class="ticker">KHC</span></td><td>Kraft Heinz Co</td><td><span class="pct-bar"><span class="bar" style="width:14px;background:var(--accent-coral);"></span> 4.23%</span></td><td>—</td><td>325,634,818</td><td>$36.04</td><td>$11,735,000,000</td></tr>
+        <tr><td><span class="ticker">MCO</span></td><td>Moody's Corp</td><td><span class="pct-bar"><span class="bar" style="width:10px;background:var(--accent-coral);"></span> 3.10%</span></td><td>—</td><td>24,669,778</td><td>$381.92</td><td>$9,424,000,000</td></tr>
+      </tbody></table></div>
+      <div class="table-footer"><span>📄 warren_buffett_holdings.csv</span><span>8 of 42 positions shown</span></div>
+    </div>
+
+    <!-- Ackman -->
+    <div class="tab-panel" id="output-ackman"><div style="overflow-x:auto;">
+      <table class="data-table"><thead><tr><th>Symbol</th><th>Stock</th><th>Portfolio %</th><th>Recent Activity</th><th>Shares</th><th>Reported Price</th><th>Value</th></tr></thead><tbody>
+        <tr><td><span class="ticker">BN</span></td><td>Brookfield Corp</td><td><span class="pct-bar"><span class="bar" style="width:70px;background:var(--accent-blue);"></span> 22.60%</span></td><td>—</td><td>34,236,338</td><td>$48.52</td><td>$1,661,000,000</td></tr>
+        <tr><td><span class="ticker">HLT</span></td><td>Hilton Worldwide</td><td><span class="pct-bar"><span class="bar" style="width:58px;background:var(--accent-blue);"></span> 18.72%</span></td><td>—</td><td>7,390,000</td><td>$188.43</td><td>$1,393,000,000</td></tr>
+        <tr><td><span class="ticker">QSR</span></td><td>Restaurant Brands Intl</td><td><span class="pct-bar"><span class="bar" style="width:50px;background:var(--accent-blue);"></span> 16.13%</span></td><td>—</td><td>23,520,292</td><td>$71.50</td><td>$1,683,000,000</td></tr>
+        <tr><td><span class="ticker">GOOGL</span></td><td>Alphabet Inc</td><td><span class="pct-bar"><span class="bar" style="width:44px;background:var(--accent-blue);"></span> 14.07%</span></td><td class="activity-new">New</td><td>8,116,458</td><td>$140.30</td><td>$1,139,000,000</td></tr>
+        <tr><td><span class="ticker">NKE</span></td><td>Nike Inc</td><td><span class="pct-bar"><span class="bar" style="width:38px;background:var(--accent-blue);"></span> 12.25%</span></td><td class="activity-new">New</td><td>16,392,000</td><td>$74.63</td><td>$1,223,000,000</td></tr>
+        <tr><td><span class="ticker">CP</span></td><td>Canadian Pacific Kansas</td><td><span class="pct-bar"><span class="bar" style="width:28px;background:var(--accent-blue);"></span> 8.84%</span></td><td class="activity-reduce">Reduce 18%</td><td>12,200,000</td><td>$77.34</td><td>$943,000,000</td></tr>
+        <tr><td><span class="ticker">HHH</span></td><td>Howard Hughes Holdings</td><td><span class="pct-bar"><span class="bar" style="width:22px;background:var(--accent-blue);"></span> 7.39%</span></td><td class="activity-add">Add 35%</td><td>13,658,900</td><td>$65.17</td><td>$890,000,000</td></tr>
+      </tbody></table></div>
+      <div class="table-footer"><span>📄 bill_ackman_holdings.csv</span><span>7 of 7 positions shown</span></div>
+    </div>
+
+    <!-- Klarman -->
+    <div class="tab-panel" id="output-klarman"><div style="overflow-x:auto;">
+      <table class="data-table"><thead><tr><th>Symbol</th><th>Stock</th><th>Portfolio %</th><th>Recent Activity</th><th>Shares</th><th>Reported Price</th><th>Value</th></tr></thead><tbody>
+        <tr><td><span class="ticker">LBTYA</span></td><td>Liberty Global</td><td><span class="pct-bar"><span class="bar" style="width:50px;background:var(--accent-purple);"></span> 16.10%</span></td><td>—</td><td>46,780,000</td><td>$19.52</td><td>$913,000,000</td></tr>
+        <tr><td><span class="ticker">QRVO</span></td><td>Qorvo Inc</td><td><span class="pct-bar"><span class="bar" style="width:38px;background:var(--accent-purple);"></span> 12.25%</span></td><td class="activity-add">Add 22%</td><td>8,900,000</td><td>$95.87</td><td>$853,000,000</td></tr>
+        <tr><td><span class="ticker">FYBR</span></td><td>Frontier Communications</td><td><span class="pct-bar"><span class="bar" style="width:34px;background:var(--accent-purple);"></span> 10.85%</span></td><td class="activity-new">New</td><td>22,340,000</td><td>$28.22</td><td>$630,000,000</td></tr>
+        <tr><td><span class="ticker">WTW</span></td><td>Willis Towers Watson</td><td><span class="pct-bar"><span class="bar" style="width:28px;background:var(--accent-purple);"></span> 9.03%</span></td><td>—</td><td>2,100,000</td><td>$271.85</td><td>$571,000,000</td></tr>
+        <tr><td><span class="ticker">INTC</span></td><td>Intel Corp</td><td><span class="pct-bar"><span class="bar" style="width:24px;background:var(--accent-purple);"></span> 7.67%</span></td><td class="activity-new">New</td><td>22,500,000</td><td>$21.38</td><td>$481,000,000</td></tr>
+        <tr><td><span class="ticker">CRH</span></td><td>CRH plc</td><td><span class="pct-bar"><span class="bar" style="width:18px;background:var(--accent-purple);"></span> 5.90%</span></td><td>—</td><td>4,200,000</td><td>$88.21</td><td>$370,000,000</td></tr>
+      </tbody></table></div>
+      <div class="table-footer"><span>📄 seth_klarman_holdings.csv</span><span>6 of 28 positions shown</span></div>
+    </div>
+
+    <!-- ARKK -->
+    <div class="tab-panel" id="output-arkk"><div style="overflow-x:auto;">
+      <table class="data-table"><thead><tr><th>ETF</th><th>Company</th><th>Ticker</th><th>Weight %</th><th>Shares</th><th>Market Value</th></tr></thead><tbody>
+        <tr><td style="font-weight:700;color:var(--accent-amber);">ARKK</td><td>Tesla Inc</td><td><span class="ticker">TSLA</span></td><td><span class="pct-bar"><span class="bar" style="width:40px;background:var(--accent-amber);"></span> 12.84%</span></td><td>4,826,519</td><td>$1,206,629,750</td></tr>
+        <tr><td style="font-weight:700;color:var(--accent-amber);">ARKK</td><td>Coinbase Global</td><td><span class="ticker">COIN</span></td><td><span class="pct-bar"><span class="bar" style="width:30px;background:var(--accent-amber);"></span> 9.52%</span></td><td>4,131,800</td><td>$893,458,000</td></tr>
+        <tr><td style="font-weight:700;color:var(--accent-amber);">ARKK</td><td>Roku Inc</td><td><span class="ticker">ROKU</span></td><td><span class="pct-bar"><span class="bar" style="width:28px;background:var(--accent-amber);"></span> 8.76%</span></td><td>11,297,800</td><td>$821,490,260</td></tr>
+        <tr><td style="font-weight:700;color:var(--accent-amber);">ARKK</td><td>Block Inc</td><td><span class="ticker">SQ</span></td><td><span class="pct-bar"><span class="bar" style="width:24px;background:var(--accent-amber);"></span> 7.41%</span></td><td>9,482,250</td><td>$695,041,000</td></tr>
+        <tr><td style="font-weight:700;color:var(--accent-amber);">ARKK</td><td>Roblox Corp</td><td><span class="ticker">RBLX</span></td><td><span class="pct-bar"><span class="bar" style="width:20px;background:var(--accent-amber);"></span> 6.33%</span></td><td>13,180,400</td><td>$593,670,000</td></tr>
+        <tr><td style="font-weight:700;color:var(--accent-amber);">ARKK</td><td>Shopify Inc</td><td><span class="ticker">SHOP</span></td><td><span class="pct-bar"><span class="bar" style="width:18px;background:var(--accent-amber);"></span> 5.68%</span></td><td>7,290,000</td><td>$532,940,000</td></tr>
+        <tr><td style="font-weight:700;color:var(--accent-amber);">ARKK</td><td>UiPath Inc</td><td><span class="ticker">PATH</span></td><td><span class="pct-bar"><span class="bar" style="width:16px;background:var(--accent-amber);"></span> 5.12%</span></td><td>28,900,000</td><td>$480,480,000</td></tr>
+        <tr><td style="font-weight:700;color:var(--accent-amber);">ARKK</td><td>Zoom Video Comms</td><td><span class="ticker">ZM</span></td><td><span class="pct-bar"><span class="bar" style="width:14px;background:var(--accent-amber);"></span> 4.49%</span></td><td>5,630,000</td><td>$421,310,000</td></tr>
+      </tbody></table></div>
+      <div class="table-footer"><span>📄 ark_arkk_holdings.csv</span><span>8 of 36 positions shown</span></div>
+    </div>
+
+    <!-- Conviction -->
+    <div class="tab-panel" id="output-conviction"><div style="overflow-x:auto;">
+      <table class="data-table"><thead><tr><th>Symbol</th><th>Stock</th><th>Managers</th><th>Appearances</th><th>Avg Weight</th><th>Total Value</th></tr></thead><tbody>
+        <tr><td><span class="ticker">GOOGL</span></td><td>Alphabet Inc</td><td style="font-size:11px;color:var(--text-secondary);">Bill Ackman, Seth Klarman</td><td style="text-align:center;"><span style="background:var(--accent-green);color:#060a11;padding:2px 10px;border-radius:12px;font-weight:700;font-size:11px;">2</span></td><td>9.14%</td><td>$1,620,000,000</td></tr>
+        <tr><td><span class="ticker">LBTYA</span></td><td>Liberty Global</td><td style="font-size:11px;color:var(--text-secondary);">Warren Buffett, Seth Klarman</td><td style="text-align:center;"><span style="background:var(--accent-green);color:#060a11;padding:2px 10px;border-radius:12px;font-weight:700;font-size:11px;">2</span></td><td>8.27%</td><td>$1,842,000,000</td></tr>
+        <tr><td><span class="ticker">AAPL</span></td><td>Apple Inc</td><td style="font-size:11px;color:var(--text-secondary);">Warren Buffett</td><td style="text-align:center;"><span style="background:var(--bg-raised);padding:2px 10px;border-radius:12px;font-weight:700;font-size:11px;border:1px solid var(--border);">1</span></td><td>28.10%</td><td>$53,616,000,000</td></tr>
+        <tr><td><span class="ticker">BN</span></td><td>Brookfield Corp</td><td style="font-size:11px;color:var(--text-secondary);">Bill Ackman</td><td style="text-align:center;"><span style="background:var(--bg-raised);padding:2px 10px;border-radius:12px;font-weight:700;font-size:11px;border:1px solid var(--border);">1</span></td><td>22.60%</td><td>$1,661,000,000</td></tr>
+        <tr><td><span class="ticker">BAC</span></td><td>Bank of America</td><td style="font-size:11px;color:var(--text-secondary);">Warren Buffett</td><td style="text-align:center;"><span style="background:var(--bg-raised);padding:2px 10px;border-radius:12px;font-weight:700;font-size:11px;border:1px solid var(--border);">1</span></td><td>13.20%</td><td>$34,507,000,000</td></tr>
+      </tbody></table></div>
+      <div class="table-footer"><span>📄 dataroma_top_conviction.csv</span><span>Top 5 conviction picks across all managers</span></div>
+    </div>
+  </div>
+
+  <!-- Terminal -->
+  <div class="terminal fade-up fade-up-4">
+    <div class="terminal-bar">
+      <span class="terminal-dot r"></span><span class="terminal-dot y"></span><span class="terminal-dot g"></span>
+      <span class="terminal-title">python superinvestor_extractor.py</span>
+    </div>
+    <div class="terminal-body">
+<span class="t-dim">============================================================</span>
+<span class="t-bold">  SUPERINVESTOR PORTFOLIO EXTRACTOR</span>
+<span class="t-dim">  Run date: 2026-05-12 14:30</span>
+<span class="t-dim">============================================================</span>
+
+<span class="t-bold">▸ DATAROMA SUPERINVESTORS</span>
+<span class="t-dim">----------------------------------------</span>
+
+<span class="t-coral">📊 Warren Buffett (Berkshire Hathaway)</span>
+  Fetching Dataroma → brk ...
+  <span class="t-green">✓ 42 holdings extracted</span>
+
+<span class="t-coral">📊 Bill Ackman (Pershing Square)</span>
+  Fetching Dataroma → psc ...
+  <span class="t-green">✓ 7 holdings extracted</span>
+
+<span class="t-coral">📊 Seth Klarman (Baupost Group)</span>
+  Fetching Dataroma → baupost ...
+  <span class="t-green">✓ 28 holdings extracted</span>
+
+<span class="t-amber">💾 Saved → output/warren_buffett_holdings.csv</span>
+<span class="t-amber">💾 Saved → output/bill_ackman_holdings.csv</span>
+<span class="t-amber">💾 Saved → output/seth_klarman_holdings.csv</span>
+<span class="t-amber">💾 Saved → output/dataroma_all_holdings.csv</span>
+<span class="t-amber">💾 Saved → output/dataroma_top_conviction.csv</span>
+
+<span class="t-dim">============================================================</span>
+<span class="t-bold">  ▸ ARK INVEST ETFs</span>
+<span class="t-dim">============================================================</span>
+
+<span class="t-cyan">🚀 ARK — ARKK</span>
+  Fetching ARK API → ARKK ...
+  <span class="t-green">✓ 36 holdings extracted</span>
+
+<span class="t-cyan">🚀 ARK — ARKW</span>
+  Fetching ARK API → ARKW ...
+  <span class="t-green">✓ 41 holdings extracted</span>
+
+<span class="t-cyan">🚀 ARK — ARKG</span>
+  Fetching ARK API → ARKG ...
+  <span class="t-green">✓ 44 holdings extracted</span>
+
+<span class="t-cyan">🚀 ARK — ARKF</span>
+  Fetching ARK API → ARKF ...
+  <span class="t-green">✓ 38 holdings extracted</span>
+
+<span class="t-cyan">🚀 ARK — ARKQ</span>
+  Fetching ARK API → ARKQ ...
+  <span class="t-green">✓ 35 holdings extracted</span>
+
+<span class="t-amber">💾 Saved → output/ark_arkk_holdings.csv</span>
+<span class="t-amber">💾 Saved → output/ark_all_holdings.csv</span>
+
+<span class="t-dim">============================================================</span>
+  <span class="t-green">✅ Done! Check the ./output/ folder for CSVs.</span>
+<span class="t-dim">============================================================</span>
+    </div>
+  </div>
+</section>
+<div class="divider"></div>
+
+<!-- DATA SOURCES -->
+<section>
+  <div class="section-label fade-up">Data Sources</div>
+  <div class="section-title fade-up fade-up-1">Superinvestors Tracked</div>
+  <div class="section-desc fade-up fade-up-2">13F quarterly filings scraped from Dataroma, showing each manager's current top positions.</div>
+  <div class="investor-grid">
+    <div class="investor-card coral fade-up fade-up-2"><div class="investor-avatar">W</div><div class="investor-name">Warren Buffett</div><div class="investor-firm">Berkshire Hathaway</div><div class="investor-code">manager_code = "brk"</div><div class="investor-source">Source: Dataroma 13F</div></div>
+    <div class="investor-card blue fade-up fade-up-3"><div class="investor-avatar">B</div><div class="investor-name">Bill Ackman</div><div class="investor-firm">Pershing Square Capital</div><div class="investor-code">manager_code = "psc"</div><div class="investor-source">Source: Dataroma 13F</div></div>
+    <div class="investor-card purple fade-up fade-up-4"><div class="investor-avatar">S</div><div class="investor-name">Seth Klarman</div><div class="investor-firm">Baupost Group</div><div class="investor-code">manager_code = "baupost"</div><div class="investor-source">Source: Dataroma 13F</div></div>
+  </div>
+  <div class="ark-grid fade-up fade-up-5">
+    <div class="ark-card" style="border-top:2px solid var(--accent-amber);"><div class="ark-etf" style="color:var(--accent-amber);">ARKK</div><div class="ark-name">Innovation ETF</div></div>
+    <div class="ark-card" style="border-top:2px solid var(--accent-green);"><div class="ark-etf" style="color:var(--accent-green);">ARKW</div><div class="ark-name">Next Gen Internet</div></div>
+    <div class="ark-card" style="border-top:2px solid var(--accent-red);"><div class="ark-etf" style="color:var(--accent-red);">ARKG</div><div class="ark-name">Genomic Revolution</div></div>
+    <div class="ark-card" style="border-top:2px solid var(--accent-blue);"><div class="ark-etf" style="color:var(--accent-blue);">ARKF</div><div class="ark-name">Fintech Innovation</div></div>
+    <div class="ark-card" style="border-top:2px solid var(--accent-purple);"><div class="ark-etf" style="color:var(--accent-purple);">ARKQ</div><div class="ark-name">Autonomous Tech</div></div>
+  </div>
+</section>
+<div class="divider"></div>
+
+<!-- CODE -->
+<section>
+  <div class="section-label fade-up">Source Code</div>
+  <div class="section-title fade-up fade-up-1">Modules</div>
+  <div class="section-desc fade-up fade-up-2">Browse the key components of the extractor.</div>
+  <div class="tab-bar" id="codeTabs">
+    <button class="tab-btn active" data-group="code" data-panel="config">⚙️ Config <span class="lines">14</span></button>
+    <button class="tab-btn" data-group="code" data-panel="dataroma">📊 Dataroma <span class="lines">95</span></button>
+    <button class="tab-btn" data-group="code" data-panel="ark">🚀 ARK <span class="lines">45</span></button>
+    <button class="tab-btn" data-group="code" data-panel="analysis">🏆 Analysis <span class="lines">40</span></button>
+    <button class="tab-btn" data-group="code" data-panel="main">▶️ Main <span class="lines">55</span></button>
+  </div>
+  <div class="tab-content">
+    <div class="tab-panel active" id="code-config"><pre><span class="line"><span class="kw">HEADERS</span> <span class="op">=</span> {</span>
+<span class="line">    <span class="st">"User-Agent"</span>: <span class="st">"Mozilla/5.0 (Windows NT 10.0; Win64; x64) ..."</span></span>
+<span class="line">}</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># Dataroma manager codes</span></span>
+<span class="line"><span class="kw">DATAROMA_PORTFOLIOS</span> <span class="op">=</span> {</span>
+<span class="line">    <span class="st">"brk"</span>:     <span class="st">"Warren Buffett (Berkshire Hathaway)"</span>,</span>
+<span class="line">    <span class="st">"psc"</span>:     <span class="st">"Bill Ackman (Pershing Square)"</span>,</span>
+<span class="line">    <span class="st">"baupost"</span>: <span class="st">"Seth Klarman (Baupost Group)"</span>,</span>
+<span class="line">}</span>
+<span class="line"></span>
+<span class="line"><span class="kw">ARK_ETFS</span> <span class="op">=</span> [<span class="st">"ARKK"</span>, <span class="st">"ARKW"</span>, <span class="st">"ARKG"</span>, <span class="st">"ARKF"</span>, <span class="st">"ARKQ"</span>]</span></pre></div>
+    <div class="tab-panel" id="code-dataroma"><pre><span class="line"><span class="kw">class</span> <span class="fn">DataromaScraper</span>:</span>
+<span class="line">    <span class="st">"""Scrapes superinvestor 13F holdings from Dataroma."""</span></span>
+<span class="line"></span>
+<span class="line">    <span class="kw">BASE_URL</span> <span class="op">=</span> <span class="st">"https://www.dataroma.com/m/holdings.php?m={manager_code}"</span></span>
+<span class="line"></span>
+<span class="line">    <span class="kw">def</span> <span class="fn">get_portfolio</span>(<span class="kw">self</span>, manager_code: <span class="fn">str</span>) -> <span class="fn">pd.DataFrame</span>:</span>
+<span class="line">        url <span class="op">=</span> <span class="kw">self</span>.BASE_URL.<span class="fn">format</span>(manager_code<span class="op">=</span>manager_code)</span>
+<span class="line">        resp <span class="op">=</span> <span class="kw">self</span>.session.<span class="fn">get</span>(url, timeout<span class="op">=</span><span class="nb">15</span>)</span>
+<span class="line">        soup <span class="op">=</span> <span class="fn">BeautifulSoup</span>(resp.text, <span class="st">"lxml"</span>)</span>
+<span class="line">        table <span class="op">=</span> soup.<span class="fn">find</span>(<span class="st">"table"</span>, {<span class="st">"id"</span>: <span class="st">"grid"</span>})</span>
+<span class="line"></span>
+<span class="line">        <span class="cm"># Parse each row for ticker, company, shares, value...</span></span>
+<span class="line">        <span class="kw">for</span> tr <span class="kw">in</span> table.<span class="fn">find</span>(<span class="st">"tbody"</span>).<span class="fn">find_all</span>(<span class="st">"tr"</span>):</span>
+<span class="line">            stock_td <span class="op">=</span> tr.<span class="fn">find</span>(<span class="st">"td"</span>, class_<span class="op">=</span><span class="st">"stock"</span>)</span>
+<span class="line">            link <span class="op">=</span> stock_td.<span class="fn">find</span>(<span class="st">"a"</span>)</span>
+<span class="line">            rows.<span class="fn">append</span>({...})</span>
+<span class="line"></span>
+<span class="line">        <span class="kw">return</span> <span class="fn">pd.DataFrame</span>(rows)</span>
+<span class="line"></span>
+<span class="line">    <span class="kw">def</span> <span class="fn">get_all_portfolios</span>(<span class="kw">self</span>) -> <span class="fn">dict</span>:</span>
+<span class="line">        <span class="kw">for</span> code, name <span class="kw">in</span> DATAROMA_PORTFOLIOS.<span class="fn">items</span>():</span>
+<span class="line">            df <span class="op">=</span> <span class="kw">self</span>.<span class="fn">get_portfolio</span>(code)</span>
+<span class="line">            <span class="fn">time.sleep</span>(<span class="nb">1.5</span>)  <span class="cm"># be polite</span></span>
+<span class="line">        <span class="kw">return</span> results</span></pre></div>
+    <div class="tab-panel" id="code-ark"><pre><span class="line"><span class="kw">class</span> <span class="fn">ArkScraper</span>:</span>
+<span class="line">    <span class="st">"""Downloads ARK Invest holdings via arkfunds.io API."""</span></span>
+<span class="line"></span>
+<span class="line">    <span class="kw">ARK_API</span> <span class="op">=</span> <span class="st">"https://arkfunds.io/api/v2/etf/holdings?symbol={etf}"</span></span>
+<span class="line"></span>
+<span class="line">    <span class="kw">def</span> <span class="fn">get_holdings_api</span>(<span class="kw">self</span>, etf: <span class="fn">str</span>) -> <span class="fn">pd.DataFrame</span>:</span>
+<span class="line">        url <span class="op">=</span> <span class="kw">self</span>.ARK_API.<span class="fn">format</span>(etf<span class="op">=</span>etf)</span>
+<span class="line">        resp <span class="op">=</span> <span class="kw">self</span>.session.<span class="fn">get</span>(url, timeout<span class="op">=</span><span class="nb">15</span>)</span>
+<span class="line">        data <span class="op">=</span> resp.<span class="fn">json</span>()</span>
+<span class="line">        holdings <span class="op">=</span> data.<span class="fn">get</span>(<span class="st">"holdings"</span>, [])</span>
+<span class="line">        df <span class="op">=</span> <span class="fn">pd.DataFrame</span>(holdings)</span>
+<span class="line">        keep <span class="op">=</span> [<span class="st">"company"</span>, <span class="st">"ticker"</span>, <span class="st">"weight"</span>, <span class="st">"shares"</span>, <span class="st">"market_value"</span>]</span>
+<span class="line">        <span class="kw">return</span> df[keep]</span>
+<span class="line"></span>
+<span class="line">    <span class="kw">def</span> <span class="fn">get_all_holdings</span>(<span class="kw">self</span>) -> <span class="fn">dict</span>:</span>
+<span class="line">        <span class="kw">for</span> etf <span class="kw">in</span> ARK_ETFS:</span>
+<span class="line">            df <span class="op">=</span> <span class="kw">self</span>.<span class="fn">get_holdings_api</span>(etf)</span>
+<span class="line">            <span class="fn">time.sleep</span>(<span class="nb">1</span>)</span>
+<span class="line">        <span class="kw">return</span> results</span></pre></div>
+    <div class="tab-panel" id="code-analysis"><pre><span class="line"><span class="kw">def</span> <span class="fn">combine_dataroma</span>(portfolios: <span class="fn">dict</span>) -> <span class="fn">pd.DataFrame</span>:</span>
+<span class="line">    <span class="st">"""Stack all Dataroma portfolios into one DataFrame."""</span></span>
+<span class="line">    <span class="kw">return</span> <span class="fn">pd.concat</span>(portfolios.<span class="fn">values</span>(), ignore_index<span class="op">=</span><span class="kw">True</span>)</span>
+<span class="line"></span>
+<span class="line"><span class="kw">def</span> <span class="fn">top_conviction_picks</span>(df, n<span class="op">=</span><span class="nb">10</span>) -> <span class="fn">pd.DataFrame</span>:</span>
+<span class="line">    <span class="st">"""Find stocks held by the most managers, weighted by %."""</span></span>
+<span class="line">    agg <span class="op">=</span> df.<span class="fn">groupby</span>(<span class="st">"Symbol"</span>).<span class="fn">agg</span>(</span>
+<span class="line">        Stock      <span class="op">=</span>(<span class="st">"Stock"</span>, <span class="st">"first"</span>),</span>
+<span class="line">        Managers   <span class="op">=</span>(<span class="st">"Manager"</span>, <span class="kw">lambda</span> x: <span class="st">", "</span>.<span class="fn">join</span>(x.<span class="fn">unique</span>())),</span>
+<span class="line">        Appearances<span class="op">=</span>(<span class="st">"Manager"</span>, <span class="st">"nunique"</span>),</span>
+<span class="line">        Avg_Weight <span class="op">=</span>(<span class="st">"Weight"</span>, <span class="st">"mean"</span>),</span>
+<span class="line">        Total_Value<span class="op">=</span>(<span class="st">"Value"</span>, <span class="st">"sum"</span>),</span>
+<span class="line">    )</span>
+<span class="line">    <span class="kw">return</span> agg.<span class="fn">sort_values</span>([<span class="st">"Appearances"</span>], ascending<span class="op">=</span><span class="kw">False</span>).<span class="fn">head</span>(n)</span>
+<span class="line"></span>
+<span class="line"><span class="kw">def</span> <span class="fn">save_results</span>(df, filename: <span class="fn">str</span>):</span>
+<span class="line">    path <span class="op">=</span> <span class="fn">os.path.join</span>(<span class="st">"output"</span>, filename)</span>
+<span class="line">    <span class="fn">os.makedirs</span>(<span class="st">"output"</span>, exist_ok<span class="op">=</span><span class="kw">True</span>)</span>
+<span class="line">    df.<span class="fn">to_csv</span>(path, index<span class="op">=</span><span class="kw">False</span>)</span></pre></div>
+    <div class="tab-panel" id="code-main"><pre><span class="line"><span class="kw">def</span> <span class="fn">main</span>():</span>
+<span class="line">    <span class="cm"># --- Dataroma ---</span></span>
+<span class="line">    dr <span class="op">=</span> <span class="fn">DataromaScraper</span>()</span>
+<span class="line">    dr_portfolios <span class="op">=</span> dr.<span class="fn">get_all_portfolios</span>()</span>
+<span class="line">    dr_combined <span class="op">=</span> <span class="fn">combine_dataroma</span>(dr_portfolios)</span>
+<span class="line"></span>
+<span class="line">    <span class="kw">for</span> code, name <span class="kw">in</span> DATAROMA_PORTFOLIOS.<span class="fn">items</span>():</span>
+<span class="line">        <span class="kw">if</span> code <span class="kw">in</span> dr_portfolios:</span>
+<span class="line">            <span class="fn">save_results</span>(df, f<span class="st">"{safe_name}_holdings.csv"</span>)</span>
+<span class="line"></span>
+<span class="line">    conviction <span class="op">=</span> <span class="fn">top_conviction_picks</span>(dr_combined)</span>
+<span class="line">    <span class="fn">save_results</span>(conviction, <span class="st">"dataroma_top_conviction.csv"</span>)</span>
+<span class="line"></span>
+<span class="line">    <span class="cm"># --- ARK ---</span></span>
+<span class="line">    ark <span class="op">=</span> <span class="fn">ArkScraper</span>()</span>
+<span class="line">    ark_holdings <span class="op">=</span> ark.<span class="fn">get_all_holdings</span>()</span>
+<span class="line">    <span class="kw">for</span> etf <span class="kw">in</span> ARK_ETFS:</span>
+<span class="line">        <span class="kw">if</span> etf <span class="kw">in</span> ark_holdings:</span>
+<span class="line">            <span class="fn">save_results</span>(df, f<span class="st">"ark_{etf.lower()}_holdings.csv"</span>)</span>
+<span class="line"></span>
+<span class="line"><span class="kw">if</span> __name__ <span class="op">==</span> <span class="st">"__main__"</span>:</span>
+<span class="line">    <span class="fn">main</span>()</span></pre></div>
+  </div>
+</section>
+<div class="divider"></div>
+
+<!-- DEPENDENCIES -->
+<section>
+  <div class="section-label fade-up">Setup</div>
+  <div class="section-title fade-up fade-up-1">Dependencies</div>
+  <div class="section-desc fade-up fade-up-2">Four packages — that's all you need.</div>
+  <div class="deps-grid fade-up fade-up-3">
+    <div class="dep-card"><div class="dep-icon">📡</div><div><div class="dep-name">requests</div><div class="dep-desc">HTTP client for web scraping</div></div></div>
+    <div class="dep-card"><div class="dep-icon">🍜</div><div><div class="dep-name">beautifulsoup4</div><div class="dep-desc">HTML/XML parser</div></div></div>
+    <div class="dep-card"><div class="dep-icon">🐼</div><div><div class="dep-name">pandas</div><div class="dep-desc">Data analysis &amp; CSV export</div></div></div>
+    <div class="dep-card"><div class="dep-icon">🌳</div><div><div class="dep-name">lxml</div><div class="dep-desc">Fast XML/HTML parser backend</div></div></div>
+  </div>
+  <div class="install-box fade-up fade-up-4" onclick="navigator.clipboard.writeText('pip install requests beautifulsoup4 pandas lxml')">
+    <span class="prompt">$</span><span class="cmd">pip install requests beautifulsoup4 pandas lxml</span><span class="copy-hint">click to copy</span>
+  </div>
+</section>
+</div>
+
+<footer>Built with Python · Data from <a href="https://www.dataroma.com">Dataroma</a> &amp; <a href="https://ark-funds.com">ARK Invest</a></footer>
+
+<script>
+document.querySelectorAll('.tab-btn').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const group = tab.dataset.group;
+    const panel = tab.dataset.panel;
+    tab.closest('.tab-bar').querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const content = tab.closest('.tab-bar').nextElementSibling;
+    content.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById(group + '-' + panel).classList.add('active');
+  });
+});
+
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) { entry.target.style.opacity = '1'; entry.target.style.transform = 'translateY(0)'; }
+  });
+}, { threshold: 0.1 });
+document.querySelectorAll('.fade-up').forEach(el => {
+  el.style.opacity = '0'; el.style.transform = 'translateY(20px)';
+  el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+  observer.observe(el);
+});
+</script>
+</body>
+</html>
